@@ -27,10 +27,6 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
 
-      - name: Run Docker Scout quickview
-        uses: docker/scout-action@v1
-        with:
-          command: quickview
 
       - name: Login to Docker Hub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
