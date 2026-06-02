@@ -16,7 +16,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build all images
-        run: docker-compose build
+        run: docker compose build
 
       - name: Run Trivy vulnerability scanner (filesystem)
         uses: aquasecurity/trivy-action@master
