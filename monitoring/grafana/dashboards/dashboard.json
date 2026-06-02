@@ -1,0 +1,62 @@
+﻿{
+    "uid": "greenops-dashboard",
+    "title": "GreenOps Platform",
+    "schemaVersion": 27,
+    "version": 2,
+    "refresh": "5s",
+    "panels": [{
+            "title": "Energy Requests Rate",
+            "type": "graph",
+            "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+            "targets": [{
+                "expr": "sum by (job) (rate(energy_requests_total[1m]))",
+                "legendFormat": "req/s"
+            }]
+        },
+        {
+            "title": "HTTP Request Duration (Auth Service) p95",
+            "type": "graph",
+            "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+            "targets": [{
+                "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_ms_bucket{job=\"auth-service\"}[5m])))",
+                "legendFormat": "p95 (ms)"
+            }]
+        },
+        {
+            "title": "CPU Usage",
+            "type": "graph",
+            "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+            "targets": [{
+                "expr": "sum by (job) (rate(process_cpu_seconds_total[1m]))",
+                "legendFormat": "cpu"
+            }]
+        },
+        {
+            "title": "Memory Usage (MB)",
+            "type": "graph",
+            "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+            "targets": [{
+                "expr": "process_resident_memory_bytes / 1024 / 1024",
+                "legendFormat": "memory MB"
+            }]
+        },
+        {
+            "title": "Request Rate (HTTP)",
+            "type": "graph",
+            "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+            "targets": [{
+                "expr": "sum by (job) (rate(http_requests_total[1m]))",
+                "legendFormat": "req/s"
+            }]
+        },
+        {
+            "title": "Error Rate (5xx)",
+            "type": "graph",
+            "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+            "targets": [{
+                "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m])) / sum(rate(http_requests_total[1m]))",
+                "legendFormat": "error rate"
+            }]
+        }
+    ]
+}
