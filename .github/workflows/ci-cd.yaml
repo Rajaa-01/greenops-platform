@@ -9,45 +9,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout
+      # 1. Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Docker Compose
-      - name: Install Docker Compose
+      # 2. Vérifier Docker
+      - name: Check Docker version
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose-plugin
+          docker --version
           docker compose version
 
-      # 3. Env file
+      # 3. Créer .env
       - name: Prepare .env
         run: |
-          [ -f .env.example ] && cp .env.example .env || true
+          if [ -f .env.example ]; then cp .env.example .env; fi
 
       # 4. Build images
       - name: Build images
         run: docker compose build
 
-      # 5. Check images exist (IMPORTANT DEBUG STEP)
-      - name: List Docker images
-        run: docker images
-
-      # 6. Login Docker Hub (SAFE)
-      - name: Docker login
+      # 5. Login Docker Hub
+      - name: Login Docker Hub
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      # 7. Tag images
+      # 6. Tag images
       - name: Tag images
         run: |
-          docker tag api-gateway ${{ secrets.DOCKER_USERNAME }}/greenops-api-gateway:latest || true
-          docker tag auth-service ${{ secrets.DOCKER_USERNAME }}/greenops-auth-service:latest || true
-          docker tag metrics-service ${{ secrets.DOCKER_USERNAME }}/greenops-metrics-service:latest || true
+          docker tag api-gateway ${{ secrets.DOCKER_USERNAME }}/greenops-api-gateway:latest
+          docker tag auth-service ${{ secrets.DOCKER_USERNAME }}/greenops-auth-service:latest
+          docker tag metrics-service ${{ secrets.DOCKER_USERNAME }}/greenops-metrics-service:latest
 
-      # 8. Push images
+      # 7. Push images
       - name: Push images
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/greenops-api-gateway:latest || true
-          docker push ${{ secrets.DOCKER_USERNAME }}/greenops-auth-service:latest || true
-          docker push ${{ secrets.DOCKER_USERNAME }}/greenops-metrics-service:latest || true
+          docker push ${{ secrets.DOCKER_USERNAME }}/greenops-api-gateway:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/greenops-auth-service:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/greenops-metrics-service:latest
