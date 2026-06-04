@@ -26,7 +26,7 @@ const redisClient = redis.createClient({ url: process.env.REDIS_URL });
 redisClient.connect();
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const PORT = process.env.AUTH_SERVICE_PORT || 5000;
+const PORT = parseInt(process.env.APP_PORT) || 5000;
 
 // Initialisation de la table users
 (async() => {
@@ -71,4 +71,10 @@ app.get('/metrics', async(req, res) => {
     res.end(await register.metrics());
 });
 
-app.listen(PORT, () => console.log(`Auth service on ${PORT}`));
+
+app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
+
+
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Auth service running on port ${PORT}`);
+});

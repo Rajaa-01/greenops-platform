@@ -5,9 +5,8 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM alpine:latest
-RUN apk add --no-cache dumb-init
-WORKDIR /app
-COPY --from=builder /app/build ./build
-USER 1000:1000
-CMD ["dumb-init", "tail", "-f", "/dev/null"]
+FROM nginx:alpine
+COPY --from=builder /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf    
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

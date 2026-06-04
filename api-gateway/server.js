@@ -17,6 +17,10 @@ app.get('/metrics', async(req, res) => {
     res.end(await register.metrics());
 });
 
+
+// ⚠️ AVANT app.use(authMiddleware) ou équivalent
+app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
+
 // Middleware d'authentification (sauf pour /api/auth et /metrics)
 const authenticate = (req, res, next) => {
     if (req.path.startsWith('/api/auth/') || req.path === '/metrics') return next();
