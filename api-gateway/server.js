@@ -17,13 +17,16 @@ app.get('/metrics', async(req, res) => {
     res.end(await register.metrics());
 });
 
-
-// ⚠️ AVANT app.use(authMiddleware) ou équivalent
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
-// Middleware d'authentification (sauf pour /api/auth et /metrics)
+// Middleware d'authentification (sauf pour /api/auth, /auth et /metrics)
 const authenticate = (req, res, next) => {
-    if (req.path.startsWith('/api/auth/') || req.path === '/metrics') return next();
+    if (
+        req.path.startsWith('/api/auth') ||
+        req.path.startsWith('/auth') ||
+        req.path === '/metrics' ||
+        req.path === '/health'
+    ) return next();
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -40,13 +43,21 @@ const authenticate = (req, res, next) => {
 
 app.use(authenticate);
 
-// Proxies
+// Proxies avec préfixe /api/auth
 app.use('/api/auth', createProxyMiddleware({
     target: process.env.AUTH_SERVICE_URL || 'http://auth-service:5000',
     changeOrigin: true,
     pathRewrite: { '^/api/auth': '' }
 }));
 
+// Proxies sans préfixe /api (après rewrite nginx)
+app.use('/auth', createProxyMiddleware({
+    target: process.env.AUTH_SERVICE_URL || 'http://auth-service:5000',
+    changeOrigin: true,
+    pathRewrite: { '^/auth': '' }
+}));
+
+// Proxies avec préfixe /api/metrics
 app.use('/api/metrics', createProxyMiddleware({
     target: process.env.METRICS_SERVICE_URL || 'http://metrics-service:5001',
     changeOrigin: true,
