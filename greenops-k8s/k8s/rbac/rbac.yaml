@@ -1,0 +1,105 @@
+# ─────────────────────────────────────────────
+# ServiceAccount – Applications (namespace greenops)
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: greenops-app-sa
+  namespace: greenops
+  labels:
+    app.kubernetes.io/part-of: greenops-platform
+automountServiceAccountToken: false
+---
+# ─────────────────────────────────────────────
+# ServiceAccount – Monitoring
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-sa
+  namespace: greenops-monitoring
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: greenops-platform
+automountServiceAccountToken: true
+---
+# ─────────────────────────────────────────────
+# ClusterRole – Prometheus (lecture des pods/services pour scraping)
+# ─────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-clusterrole
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: greenops-platform
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/proxy
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+    verbs: ["get"]
+---
+# ─────────────────────────────────────────────
+# ClusterRoleBinding – Prometheus
+# ─────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-clusterrolebinding
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: greenops-platform
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-sa
+    namespace: greenops-monitoring
+roleRef:
+  kind: ClusterRole
+  name: prometheus-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+---
+# ─────────────────────────────────────────────
+# Role – Applications (accès limité aux secrets dans greenops)
+# ─────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: greenops-app-role
+  namespace: greenops
+  labels:
+    app.kubernetes.io/part-of: greenops-platform
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  # Pas d'accès direct aux secrets depuis les pods (injectés via env)
+---
+# ─────────────────────────────────────────────
+# RoleBinding – Applications
+# ─────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: greenops-app-rolebinding
+  namespace: greenops
+  labels:
+    app.kubernetes.io/part-of: greenops-platform
+subjects:
+  - kind: ServiceAccount
+    name: greenops-app-sa
+    namespace: greenops
+roleRef:
+  kind: Role
+  name: greenops-app-role
+  apiGroup: rbac.authorization.k8s.io

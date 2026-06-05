@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: frontend
+    app.kubernetes.io/part-of: greenops-platform
+    tier: frontend
+  name: frontend
+  namespace: greenops
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "false"
+      labels:
+        app: frontend
+        tier: frontend
+    spec:
+      containers:
+      - image: greenops/frontend:latest
+        imagePullPolicy: Never
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        name: frontend
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /etc/nginx/conf.d
+          name: nginx-frontend-config
+      securityContext:
+        runAsNonRoot: false
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          name: nginx-frontend-config
+        name: nginx-frontend-config

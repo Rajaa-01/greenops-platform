@@ -1,0 +1,164 @@
+# ─────────────────────────────────────────────
+# ConfigMap – API Gateway
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: greenops
+  labels:
+    app: api-gateway
+    app.kubernetes.io/part-of: greenops-platform
+data:
+  NODE_ENV: "production"
+  PORT: "4000"
+  AUTH_SERVICE_URL: "http://auth-service:5000"
+  METRICS_SERVICE_URL: "http://metrics-service:5001"
+  LOG_LEVEL: "info"
+---
+# ─────────────────────────────────────────────
+# ConfigMap – Auth Service
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-config
+  namespace: greenops
+  labels:
+    app: auth-service
+    app.kubernetes.io/part-of: greenops-platform
+data:
+  NODE_ENV: "production"
+  PORT: "5000"
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "greenops"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  LOG_LEVEL: "info"
+  TOKEN_EXPIRY: "3600"
+---
+# ─────────────────────────────────────────────
+# ConfigMap – Metrics Service
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metrics-service-config
+  namespace: greenops
+  labels:
+    app: metrics-service
+    app.kubernetes.io/part-of: greenops-platform
+data:
+  NODE_ENV: "production"
+  PORT: "5001"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "greenops"
+  LOG_LEVEL: "info"
+  METRICS_INTERVAL_MS: "5000"
+---
+# ─────────────────────────────────────────────
+# ConfigMap – PostgreSQL init
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: greenops
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: greenops-platform
+data:
+  POSTGRES_DB: "greenops"
+  PGDATA: "/var/lib/postgresql/data/pgdata"
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(100) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      role VARCHAR(50) DEFAULT 'viewer',
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS energy_metrics (
+      id SERIAL PRIMARY KEY,
+      service_name VARCHAR(100) NOT NULL,
+      value FLOAT NOT NULL,
+      unit VARCHAR(20) DEFAULT 'kWh',
+      recorded_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS alerts (
+      id SERIAL PRIMARY KEY,
+      severity VARCHAR(50) NOT NULL,
+      message TEXT NOT NULL,
+      resolved BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    INSERT INTO users (username, password_hash, role)
+    VALUES ('demo', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin')
+    ON CONFLICT (username) DO NOTHING;
+---
+# ─────────────────────────────────────────────
+# ConfigMap – Nginx (reverse proxy / frontend)
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: greenops
+  labels:
+    app: frontend
+    app.kubernetes.io/part-of: greenops-platform
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /tmp/nginx.pid;
+
+    events {
+      worker_connections 1024;
+    }
+
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      sendfile on;
+      keepalive_timeout 65;
+
+      log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent"';
+      access_log /var/log/nginx/access.log main;
+
+      gzip on;
+      gzip_types text/plain text/css application/json application/javascript;
+
+      server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location / {
+          try_files $uri $uri/ /index.html;
+        }
+
+        location /api/ {
+          proxy_pass http://api-gateway-service:4000/;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /health {
+          return 200 'OK';
+          add_header Content-Type text/plain;
+        }
+      }
+    }

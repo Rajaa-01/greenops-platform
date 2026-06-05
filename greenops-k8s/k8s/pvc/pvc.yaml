@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────
+# PVC – PostgreSQL
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: greenops
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: greenops-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi
+---
+# ─────────────────────────────────────────────
+# PVC – Redis
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: greenops
+  labels:
+    app: redis
+    app.kubernetes.io/part-of: greenops-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 1Gi
+---
+# ─────────────────────────────────────────────
+# PVC – Prometheus
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: greenops-monitoring
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: greenops-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 10Gi
+---
+# ─────────────────────────────────────────────
+# PVC – Grafana
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: greenops-monitoring
+  labels:
+    app: grafana
+    app.kubernetes.io/part-of: greenops-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 2Gi

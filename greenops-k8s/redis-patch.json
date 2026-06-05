@@ -1,0 +1,1 @@
+﻿{"spec":{"template":{"spec":{"containers":[{"name":"redis","command":["redis-server"],"args":["--appendonly","yes","--requirepass","7a8abce3866d61ac2ee8397d8ecdd895"]}]}}}}

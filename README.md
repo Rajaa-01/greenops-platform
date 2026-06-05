@@ -104,16 +104,18 @@ minikube start
 # 2. Activer l'Ingress controller
 minikube addons enable ingress
 
-# 3. Pointer Docker vers le daemon Minikube
-minikube docker-env --shell powershell | Invoke-Expression
-
-# 4. Builder les images dans Minikube
+# 3. Builder les images localement et les charger dans Minikube
 docker build -t greenops/auth-service:latest ./auth-service
 docker build -t greenops/metrics-service:latest ./metrics-service
 docker build -t greenops/api-gateway:latest ./api-gateway
 docker build -t greenops/frontend:latest ./frontend
 
-# 5. Déployer les manifests Kubernetes
+minikube image load greenops/auth-service:latest
+minikube image load greenops/metrics-service:latest
+minikube image load greenops/api-gateway:latest
+minikube image load greenops/frontend:latest
+
+# 4. Déployer les manifests Kubernetes
 kubectl apply -f greenops-k8s/k8s/namespaces/
 kubectl apply -f greenops-k8s/k8s/secrets/
 kubectl apply -f greenops-k8s/k8s/configmaps/
@@ -124,11 +126,23 @@ kubectl apply -f greenops-k8s/k8s/ingress/
 kubectl apply -f greenops-k8s/k8s/hpa/
 kubectl apply -f greenops-k8s/k8s/network-policies/
 
-# 6. Exposer via tunnel
-minikube tunnel
+# 5. Exposer le frontend via port-forward
+kubectl port-forward svc/frontend-service 8080:80 -n greenops
 
-# 7. Accéder à la plateforme
-# http://localhost
+# 6. Accéder à la plateforme
+# http://localhost:8080
+```
+
+> **Note :** Si vous utilisez `minikube tunnel`, le frontend est accessible sur `http://localhost` directement.
+
+### Mettre à jour une image après modification
+
+```powershell
+# Exemple pour l'auth-service
+docker build -t greenops/auth-service:latest ./auth-service
+minikube ssh "docker rmi -f greenops/auth-service:latest"
+minikube image load greenops/auth-service:latest
+kubectl rollout restart deployment/auth-service -n greenops
 ```
 
 ### Structure des manifests
@@ -259,7 +273,9 @@ Copier `.env.example` en `.env` et renseigner :
 
 ## Credentials de démonstration
 
-| Champ | Valeur |
-|---|---|
-| Username | `demo` |
-| Password | `demo123` |
+| Rôle | Username | Password | Accès |
+|---|---|---|---|
+| Utilisateur | `demo` | `demo123` | Dashboard utilisateur (`/dashboard`) |
+| Administrateur | `admin` | `admin123` | Dashboard admin (`/admin`) |
+
+> Les comptes sont créés automatiquement au démarrage de l'auth-service via le script d'initialisation.

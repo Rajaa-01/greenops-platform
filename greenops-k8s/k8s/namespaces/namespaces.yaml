@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: greenops
+  labels:
+    app.kubernetes.io/part-of: greenops-platform
+    environment: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: greenops-monitoring
+  labels:
+    app.kubernetes.io/part-of: greenops-platform
+    environment: monitoring

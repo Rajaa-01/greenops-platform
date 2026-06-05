@@ -1,0 +1,7 @@
+﻿apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: greenops
+data:
+  POSTGRES_DB: Z3JlZW5vcHM=

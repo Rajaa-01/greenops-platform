@@ -1,0 +1,25 @@
+# Secrets – JAMAIS commités
+k8s/secrets/secrets.yaml
+.env
+*.secret
+*.key
+
+# Fichiers générés
+*.generated.yaml
+kubeconfig
+kubeconfig.yaml
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Node
+node_modules/
+npm-debug.log*

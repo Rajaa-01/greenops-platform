@@ -1,0 +1,265 @@
+# ─────────────────────────────────────────────
+# ConfigMap – Prometheus configuration
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: greenops-monitoring
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: greenops-platform
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: greenops-k8s
+        env: production
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: []
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+    scrape_configs:
+      # ── Prometheus lui-même ──────────────────
+      - job_name: prometheus
+        static_configs:
+          - targets: ['localhost:9090']
+
+      # ── API Gateway ──────────────────────────
+      - job_name: api-gateway
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [greenops]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: api-gateway
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            regex: "true"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            separator: ":"
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            target_label: __metrics_path__
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+      # ── Auth Service ─────────────────────────
+      - job_name: auth-service
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [greenops]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: auth-service
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            regex: "true"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            separator: ":"
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            target_label: __metrics_path__
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+      # ── Metrics Service ──────────────────────
+      - job_name: metrics-service
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [greenops]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: metrics-service
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            regex: "true"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            separator: ":"
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            target_label: __metrics_path__
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+      # ── Node Exporter (métriques des nœuds) ──
+      - job_name: node-exporter
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics
+
+      # ── kube-state-metrics ───────────────────
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets: ['kube-state-metrics.kube-system.svc.cluster.local:8080']
+
+  alerts.yml: |
+    groups:
+      - name: greenops-alerts
+        rules:
+          - alert: ServiceDown
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Service {{ $labels.job }} is down"
+              description: "{{ $labels.job }} pod {{ $labels.pod }} has been down for more than 1 minute."
+
+          - alert: HighCPUUsage
+            expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage on {{ $labels.job }}"
+              description: "CPU usage is above 80% for 2 minutes on {{ $labels.pod }}."
+
+          - alert: HighMemoryUsage
+            expr: process_resident_memory_bytes / 1024 / 1024 > 200
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage on {{ $labels.job }}"
+              description: "Memory usage exceeds 200MB on {{ $labels.pod }}."
+
+          - alert: HighEnergyRequestRate
+            expr: rate(energy_requests_total[5m]) > 100
+            for: 3m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High energy request rate"
+              description: "Energy request rate exceeds 100 req/s for 3 minutes."
+
+          - alert: HighRequestLatency
+            expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High request latency on {{ $labels.job }}"
+              description: "P95 latency exceeds 1s on {{ $labels.pod }}."
+---
+# ─────────────────────────────────────────────
+# Deployment – Prometheus
+# ─────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: greenops-monitoring
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: greenops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534   # nobody
+        fsGroup: 65534
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.51.0
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=15d
+            - --web.enable-lifecycle
+            - --web.enable-admin-api
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+            - name: prometheus-config
+              mountPath: /etc/prometheus/rules/alerts.yml
+              subPath: alerts.yml
+            - name: prometheus-data
+              mountPath: /prometheus
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: prometheus-config
+        - name: prometheus-data
+          persistentVolumeClaim:
+            claimName: prometheus-pvc
+---
+# ─────────────────────────────────────────────
+# Service – Prometheus
+# ─────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: greenops-monitoring
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: greenops-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
